@@ -71,13 +71,15 @@ export default {
 							return 响应;
 						}
 					}
-					// 返回登录页面
-					return new Response(登录页面, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-				} else if (访问路径 === 'admin' || 访问路径.startsWith('admin/')) {//管理员面板
+					// 返回原始项目的登录页面
+					return fetch(Pages静态页面 + '/login');
+				} else if (访问路径 === 'admin' || 访问路径.startsWith('admin/')) {//验证cookie后响应管理页面
 					const cookies = request.headers.get('Cookie') || '';
 					const authCookie = cookies.split(';').find(c => c.trim().startsWith('auth='))?.split('=')[1];
-					if (authCookie != await MD5MD5(UA + 加密秘钥 + 管理员密码)) return new Response('重定向中...', { status: 302, headers: { 'Location': '/login' } });
-					// 管理面板API路由
+					// 没有cookie或cookie错误，跳转到/login页面
+					if (!authCookie || authCookie !== await MD5MD5(UA + 加密秘钥 + 管理员密码)) return new Response('重定向中...', { status: 302, headers: { 'Location': '/login' } });
+					
+					// 检查是否是我们新增的用户管理API请求
 					if (访问路径 === 'admin/users/create') { // 创建用户
 						try {
 							const userData = await request.json();
@@ -170,8 +172,9 @@ export default {
 							});
 						}
 					} else {
-						// 返回管理面板HTML
-						return new Response(管理面板, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+						// 对于其他admin请求，使用原始项目的管理页面
+						// 从外部获取管理页面内容
+						return fetch(Pages静态页面 + '/admin');
 					}
 				} else if (访问路径 === 'sub') {//处理订阅请求
 					const 订阅TOKEN = await MD5MD5(host + userID), 作为优选订阅生成器 = ['1', 'true'].includes(env.BEST_SUB) && url.searchParams.get('host') === 'example.com' && url.searchParams.get('uuid') === '00000000-0000-4000-8000-000000000000' && UA.toLowerCase().includes('tunnel (https://github.com/cmliu/edge');
@@ -388,182 +391,3 @@ async function 读取config_JSON(env, host, userID, UA) {
 async function 请求日志记录(env, request, 访问IP, 类型, config_JSON, flag) {
     // 空实现
 }
-
-const 登录页面 = `
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - EdgeTunnel管理面板</title>
-</head>
-<body>
-    <div class="login-container">
-        <form id="loginForm">
-            <h2>管理员登录</h2>
-            <input type="password" id="password" placeholder="请输入密码" required>
-            <button type="submit">登录</button>
-        </form>
-    </div>
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const password = document.getElementById('password').value;
-            
-            const response = await fetch('/login', {
-                method: 'POST',
-                body: 'password=' + encodeURIComponent(password),
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            });
-            
-            if (response.status === 200) {
-                alert('登录成功');
-                window.location.href = '/admin';
-            } else {
-                alert('密码错误');
-            }
-        });
-    </script>
-</body>
-</html>
-`;
-
-const 管理面板 = `
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EdgeTunnel管理面板</title>
-</head>
-<body>
-    <div class="container">
-        <h1>用户管理系统</h1>
-        
-        <div class="user-form">
-            <h2>创建用户</h2>
-            <input type="text" id="newUserId" placeholder="用户ID（留空使用默认ID）">
-            <input type="number" id="newUserDays" placeholder="使用天数（默认30天）" value="30">
-            <button onclick="createUser()">创建用户</button>
-        </div>
-        
-        <div class="user-form">
-            <h2>更新用户（续期）</h2>
-            <input type="text" id="updateUserId" placeholder="用户ID（留空使用默认ID）">
-            <input type="number" id="updateUserDays" placeholder="新的使用天数" value="30">
-            <button onclick="updateUser()">更新用户</button>
-        </div>
-        
-        <div class="user-form">
-            <h2>删除用户</h2>
-            <input type="text" id="deleteUserId" placeholder="用户ID">
-            <button onclick="deleteUser()">删除用户</button>
-        </div>
-        
-        <div>
-            <button onclick="listUsers()">刷新用户列表</button>
-        </div>
-        
-        <div id="userList"></div>
-    </div>
-    
-    <script>
-        async function createUser() {
-            const userId = document.getElementById('newUserId').value || undefined;
-            const days = parseInt(document.getElementById('newUserDays').value) || 30;
-            
-            const response = await fetch('/admin/users/create', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId: userId,
-                    days: days
-                })
-            });
-            
-            const result = await response.json();
-            alert(result.success ? '用户创建成功' : '用户创建失败: ' + result.error);
-            listUsers();
-        }
-        
-        async function updateUser() {
-            const userId = document.getElementById('updateUserId').value || undefined;
-            const days = parseInt(document.getElementById('updateUserDays').value) || 30;
-            
-            const response = await fetch('/admin/users/update', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId: userId,
-                    days: days
-                })
-            });
-            
-            const result = await response.json();
-            alert(result.success ? '用户更新成功' : '用户更新失败: ' + result.error);
-            listUsers();
-        }
-        
-        async function deleteUser() {
-            const userId = document.getElementById('deleteUserId').value;
-            if (!userId) {
-                alert('请输入用户ID');
-                return;
-            }
-            
-            const response = await fetch('/admin/users/delete', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId: userId
-                })
-            });
-            
-            const result = await response.json();
-            alert(result.success ? '用户删除成功' : '用户删除失败: ' + result.error);
-            listUsers();
-        }
-        
-        async function listUsers() {
-            const response = await fetch('/admin/users/list');
-            const result = await response.json();
-            
-            if (result.success) {
-                const userListDiv = document.getElementById('userList');
-                userListDiv.innerHTML = '<h2>用户列表</h2>';
-                
-                if (result.users.length === 0) {
-                    userListDiv.innerHTML += '<p>暂无用户</p>';
-                    return;
-                }
-                
-                const table = document.createElement('table');
-                table.innerHTML = '<tr><th>用户ID</th><th>创建时间</th><th>过期时间</th><th>总天数</th></tr>';
-                
-                result.users.forEach(user => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = 
-                        '<td>' + (user.id || 'N/A') + '</td>' +
-                        '<td>' + (user.created ? new Date(user.created).toLocaleString() : 'N/A') + '</td>' +
-                        '<td>' + (user.expirationDate ? new Date(user.expirationDate).toLocaleString() : '永久') + '</td>' +
-                        '<td>' + (user.days || 'N/A') + '</td>';
-                    table.appendChild(row);
-                });
-                
-                userListDiv.appendChild(table);
-            } else {
-                alert('获取用户列表失败: ' + result.error);
-            }
-        }
-    </script>
-</body>
-</html>
-`;
