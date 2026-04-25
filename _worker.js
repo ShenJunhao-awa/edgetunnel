@@ -233,6 +233,9 @@ export default {
 													: 'mixed';
 						// ... 其他订阅逻辑
 					}
+				} else {
+					// 处理根路径和其他未匹配的路径，返回主页
+					return fetch(Pages静态页面 + '/index');
 				}
 			}
 		}
