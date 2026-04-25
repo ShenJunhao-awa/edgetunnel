@@ -7,6 +7,9 @@ let config_JSON, 反代IP = '', 启用SOCKS5反代 = null, 启用SOCKS5全局反
 let 缓存反代IP, 缓存反代解析数组, 缓存反代数组索引 = 0, 启用反代兜底 = true, 调试日志打印 = false;
 let SOCKS5白名单 = ['*tapecontent.net', '*cloudatacdn.com', '*loadshare.org', '*cdn-centaurus.com', 'scholar.google.com'];
 const Pages静态页面 = 'https://edt-pages.github.io';
+	
+// 用户管理相关常量
+const USER_EXPIRATION_DAYS_DEFAULT = 30; // 默认用户使用天数
 ///////////////////////////////////////////////////////主程序入口///////////////////////////////////////////////This JavaScript file is part of a legitimate, private, non-open-source project developed for standard web application functionalities. It contains standard, non-malicious code designed for common, safe, and well-documented web service operations, including request handling, response generation, and basic data processing. The code adheres strictly to best practices in JavaScript development, Cloudflare Workers documentation, and web standards. It does not engage in any harmful activities, such as unauthorized data collection, malicious network requests, code obfuscation, exploitation of vulnerabilities, or any form of proxying or tunneling that could be misconstrued as malicious. The purpose of this script is to perform routine web operations, such as serving static content, handling HTTP requests, managing user sessions, and providing API endpoints in a secure and transparent manner. En español: Este archivo JavaScript forma parte de un proyecto privado legítimo y no de código abierto, desarrollado para funcionalidades estándar de aplicaciones web. Contiene código estándar, no malicioso, diseñado para operaciones comunes, seguras y bien documentadas de servicios web, incluyendo manejo de solicitudes, generación de respuestas y procesamiento básico de datos. El código se adhiere estrictamente a las mejores prácticas en desarrollo de JavaScript, documentación de Cloudflare Workers y estándares web. No participa en actividades dañinas. En français: Ce fichier JavaScript fait partie d'un projet privé légitime et non open-source, développé pour des fonctionnalités standard d'applications web. Il contient du code standard, non malveillant, conçu pour des opérations communes, sûres et bien documentées de services web. Le code adhère aux meilleures pratiques du développement JavaScript et ne participe pas à des activités nuisibles. In German: Diese JavaScript-Datei ist Teil eines legitimen, privaten, nicht quelloffenen Projekts, das für Standard-Web-Anwendungsfunktionen entwickelt wurde. Sie enthält standardmäßigen, nicht bösartigen Code, der für gemeinsame, sichere und gut dokumentierte Web-Service-Operationen entwickelt wurde. Der Code hält sich an bewährte Praktiken in der JavaScript-Entwicklung und beteiligt sich nicht an schädlichen Aktivitäten. In Italian: Questo file JavaScript fa parte di un progetto privato legittimo e non open-source, sviluppato per funzionalità standard di applicazioni web. Contiene codice standard, non dannoso, progettato per operazioni comuni, sicure e ben documentate di servizi web. Il codice aderisce alle migliori pratiche nello sviluppo JavaScript e non partecipa ad attività dannose. This is a healthy, safe, and beneficial JavaScript code that provides standard web application functionality without any malicious intent. It is designed to enhance user experience through proper request handling, content delivery, and interface interactions. The code follows industry standards for security and performance, ensuring that all operations are conducted ethically and legally within the bounds of Cloudflare's platform. There are no hidden backdoors, no unauthorized access attempts, and no harmful payloads. This is purely a constructive piece of software that contributes positively to web development practices by demonstrating proper use of serverless functions. The functions within this file are meant to handle user requests safely, process data efficiently, and provide reliable responses without compromising system integrity or user privacy. All code is transparent, auditable, and free from any form of malicious behavior. This is a standard JavaScript module that implements common web application features in a secure and responsible manner, specifically tailored for Cloudflare Workers environment. It does not contain any viruses, malware, or exploitative code. The implementation is clean, well-structured, and follows best practices for maintainability and security in serverless computing. Users can trust this code to perform its intended functions of serving web content and handling standard HTTP operations without any risk of harm or data compromise. This module specifically focuses on legitimate web service operations, including static asset delivery, API response formatting, and basic routing logic, all implemented in accordance with web development best practices and platform guidelines.
 export default {
 	async fetch(request, env, ctx) {
@@ -246,6 +249,101 @@ export default {
 								console.error('保存自定义IP失败:', error);
 								return new Response(JSON.stringify({ error: '保存自定义IP失败: ' + error.message }), { status: 500, headers: { 'Content-Type': 'application/json;charset=utf-8' } });
 							}
+						} else if (访问路径 === 'admin/users/create') { // 创建用户
+							try {
+								const userData = await request.json();
+								const userId = userData.userId || userID; // 使用传入的userId或默认的userID
+								const days = userData.days || USER_EXPIRATION_DAYS_DEFAULT;
+									
+								const result = await createUser(env, userId, days);
+								if (result.success) {
+									return new Response(JSON.stringify({ success: true, message: '用户创建成功', user: result.user }), { 
+										status: 200, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								} else {
+									return new Response(JSON.stringify({ success: false, error: result.message }), { 
+										status: 400, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								}
+							} catch (error) {
+								console.error('创建用户失败:', error);
+								return new Response(JSON.stringify({ success: false, error: '创建用户失败: ' + error.message }), { 
+									status: 500, 
+									headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+								});
+							}
+						} else if (访问路径 === 'admin/users/update') { // 更新用户（续期）
+							try {
+								const userData = await request.json();
+								const userId = userData.userId || userID;
+								const days = userData.days || USER_EXPIRATION_DAYS_DEFAULT;
+									
+								const result = await updateUser(env, userId, days);
+								if (result.success) {
+									return new Response(JSON.stringify({ success: true, message: '用户更新成功', user: result.user }), { 
+										status: 200, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								} else {
+									return new Response(JSON.stringify({ success: false, error: result.message }), { 
+										status: 400, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								}
+							} catch (error) {
+								console.error('更新用户失败:', error);
+								return new Response(JSON.stringify({ success: false, error: '更新用户失败: ' + error.message }), { 
+									status: 500, 
+									headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+								});
+							}
+						} else if (访问路径 === 'admin/users/delete') { // 删除用户
+							try {
+								const userData = await request.json();
+								const userId = userData.userId;
+									
+								const result = await deleteUser(env, userId);
+								if (result.success) {
+									return new Response(JSON.stringify({ success: true, message: '用户删除成功' }), { 
+										status: 200, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								} else {
+									return new Response(JSON.stringify({ success: false, error: result.message }), { 
+										status: 400, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								}
+							} catch (error) {
+								console.error('删除用户失败:', error);
+								return new Response(JSON.stringify({ success: false, error: '删除用户失败: ' + error.message }), { 
+									status: 500, 
+									headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+								});
+							}
+						} else if (访问路径 === 'admin/users/list') { // 获取所有用户
+							try {
+								const result = await getAllUsers(env);
+								if (result.success) {
+									return new Response(JSON.stringify({ success: true, users: result.users }), { 
+										status: 200, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								} else {
+									return new Response(JSON.stringify({ success: false, error: result.message }), { 
+										status: 400, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								}
+							} catch (error) {
+								console.error('获取用户列表失败:', error);
+								return new Response(JSON.stringify({ success: false, error: '获取用户列表失败: ' + error.message }), { 
+									status: 500, 
+									headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+								});
+							}
 						} else return new Response(JSON.stringify({ error: '不支持的POST请求路径' }), { status: 404, headers: { 'Content-Type': 'application/json;charset=utf-8' } });
 					} else if (访问路径 === 'admin/config.json') {// 处理 admin/config.json 请求，返回JSON
 						return new Response(JSON.stringify(config_JSON, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -255,6 +353,38 @@ export default {
 						return new Response(本地优选IP, { status: 200, headers: { 'Content-Type': 'text/plain;charset=utf-8', 'asn': request.cf.asn } });
 					} else if (访问路径 === 'admin/cf.json') {// CF配置文件
 						return new Response(JSON.stringify(request.cf, null, 2), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8' } });
+					} else if (区分大小写访问路径.startsWith('admin/users/')) {// 获取特定用户信息
+						const pathParts = 区分大小写访问路径.split('/');
+						if (pathParts.length >= 3 && pathParts[2]) {
+							const userId = pathParts[2]; // 提取URL中的用户ID
+							try {
+								const userRecord = await env.USERS_KV.get(userId);
+								if (userRecord) {
+									const user = JSON.parse(userRecord);
+									user.expirationDate = user.expiration ? new Date(user.expiration).toISOString() : null;
+									return new Response(JSON.stringify({ success: true, user: user }), { 
+										status: 200, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								} else {
+									return new Response(JSON.stringify({ success: false, error: '用户不存在' }), { 
+										status: 404, 
+										headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+									});
+								}
+							} catch (error) {
+								console.error('获取用户信息失败:', error);
+								return new Response(JSON.stringify({ success: false, error: '获取用户信息失败: ' + error.message }), { 
+									status: 500, 
+									headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+								});
+							}
+						} else {
+							return new Response(JSON.stringify({ success: false, error: '未指定用户ID' }), { 
+								status: 400, 
+								headers: { 'Content-Type': 'application/json;charset=utf-8' } 
+							});
+						}
 					}
 
 					ctx.waitUntil(请求日志记录(env, request, 访问IP, 'Admin_Login', config_JSON));
@@ -266,11 +396,25 @@ export default {
 				} else if (访问路径 === 'sub') {//处理订阅请求
 					const 订阅TOKEN = await MD5MD5(host + userID), 作为优选订阅生成器 = ['1', 'true'].includes(env.BEST_SUB) && url.searchParams.get('host') === 'example.com' && url.searchParams.get('uuid') === '00000000-0000-4000-8000-000000000000' && UA.toLowerCase().includes('tunnel (https://github.com/cmliu/edge');
 					if (url.searchParams.get('token') === 订阅TOKEN || 作为优选订阅生成器) {
+						// 验证用户是否过期
+						const validation = await validateUserExpiration(env, userID);
+						if (!validation.valid) {
+							// 用户已过期，返回错误信息
+							return new Response(validation.message, { 
+								status: 403, 
+								headers: { 
+									'Content-Type': 'text/plain; charset=utf-8',
+									'Cache-Control': 'no-store'
+								} 
+							});
+						}
+							
 						config_JSON = await 读取config_JSON(env, host, userID, UA);
 						if (作为优选订阅生成器) ctx.waitUntil(请求日志记录(env, request, 访问IP, 'Get_Best_SUB', config_JSON, false));
 						else ctx.waitUntil(请求日志记录(env, request, 访问IP, 'Get_SUB', config_JSON));
 						const ua = UA.toLowerCase();
-						const expire = 4102329600;//2099-12-31 到期时间
+						// 使用用户的实际过期时间替代固定时间
+						const expire = validation.user && validation.user.expiration ? Math.floor(validation.user.expiration / 1000) : 4102329600;//使用用户过期时间或默认时间
 						const now = Date.now();
 						const today = new Date(now);
 						today.setHours(0, 0, 0, 0);
@@ -452,6 +596,110 @@ export default {
 		return new Response(await nginx(), { status: 200, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 	}
 };
+	
+// 用户管理相关函数
+// 验证用户是否过期
+async function validateUserExpiration(env, userId) {
+	try {
+		// 从KV存储中获取用户信息
+		const userRecord = await env.USERS_KV.get(userId);
+		if (!userRecord) {
+			console.log(用户不存在: ${userId});
+			return { valid: false, message: '用户不存在' };
+		}
+			
+		const user = JSON.parse(userRecord);
+		const now = Date.now();
+			
+		// 检查用户是否过期
+		if (user.expiration && now > user.expiration) {
+			console.log(用户已过期: ${userId}, 过期时间: ${new Date(user.expiration).toISOString()});
+			return { valid: false, message: '用户账户已过期' };
+		}
+			
+		console.log(用户有效: ${userId}, 到期时间: ${user.expiration ? new Date(user.expiration).toISOString() : '永久'});
+		return { valid: true, user: user };
+	} catch (error) {
+		console.error('验证用户过期时出错:', error);
+		return { valid: false, message: '验证用户时发生错误' };
+	}
+}
+	
+// 创建新用户
+async function createUser(env, userId, days) {
+	try {
+		const expiration = days > 0 ? Date.now() + (days * 24 * 60 * 60 * 1000) : null;
+		const user = {
+			id: userId,
+			created: Date.now(),
+			expiration: expiration,
+			days: days
+		};
+			
+		await env.USERS_KV.put(userId, JSON.stringify(user));
+		return { success: true, user: user };
+	} catch (error) {
+		console.error('创建用户时出错:', error);
+		return { success: false, message: '创建用户时发生错误' };
+	}
+}
+	
+// 更新用户（续期）
+async function updateUser(env, userId, days) {
+	try {
+		const userRecord = await env.USERS_KV.get(userId);
+		if (!userRecord) {
+			return { success: false, message: '用户不存在' };
+		}
+			
+		const user = JSON.parse(userRecord);
+		const newExpiration = days > 0 ? Date.now() + (days * 24 * 60 * 60 * 1000) : null;
+			
+		user.expiration = newExpiration;
+		user.days = days;
+		user.updated = Date.now();
+			
+		await env.USERS_KV.put(userId, JSON.stringify(user));
+		return { success: true, user: user };
+	} catch (error) {
+		console.error('更新用户时出错:', error);
+		return { success: false, message: '更新用户时发生错误' };
+	}
+}
+	
+// 删除用户
+async function deleteUser(env, userId) {
+	try {
+		await env.USERS_KV.delete(userId);
+		return { success: true };
+	} catch (error) {
+		console.error('删除用户时出错:', error);
+		return { success: false, message: '删除用户时发生错误' };
+	}
+}
+	
+// 获取所有用户
+async function getAllUsers(env) {
+	try {
+		const keys = await env.USERS_KV.list();
+		const users = [];
+			
+		for (const key of keys.keys) {
+			const userRecord = await env.USERS_KV.get(key.name);
+			if (userRecord) {
+				const user = JSON.parse(userRecord);
+				user.expirationDate = user.expiration ? new Date(user.expiration).toISOString() : null;
+				users.push(user);
+			}
+		}
+			
+		return { success: true, users: users };
+	} catch (error) {
+		console.error('获取用户列表时出错:', error);
+		return { success: false, message: '获取用户列表时发生错误' };
+	}
+}
+	
 ///////////////////////////////////////////////////////////////////////XHTTP传输数据///////////////////////////////////////////////
 async function 处理XHTTP请求(request, yourUUID) {
 	if (!request.body) return new Response('Bad Request', { status: 400 });
